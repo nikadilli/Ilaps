@@ -3,7 +3,7 @@ from decimal import Decimal
 import datetime
 
 
-def outlierDetection(data):
+def outlier_detection(data):
     # removes outliers from a list of given values by IQR rule
     # returns list of values without outlier
     iqr = np.percentile(data,75)-np.percentile(data,25)
@@ -11,18 +11,25 @@ def outlierDetection(data):
     max = np.percentile(data,75)+ 1.5*iqr 
     return [x for x in data if x<=max and x>=min]
 
+
 def element_strip(elem):
     # formatting of element name to match colnames of reference material
     elem = elem.replace('(LR)', '').replace('(MR)', '').replace('(HR)','')
     elem = ''.join([c for c in elem if c.isalpha()])
     return elem
 
+
+def elem_resolution(elem):
+    elem = elem.replace('(LR)', '').replace('(MR)', '').replace('(HR)', '')
+    return elem
+
+
 def element_formater(elem, lst_of_elems):
     # matches the given element format to the one used in list
     if elem in lst_of_elems:
         return elem
     elif elem not in lst_of_elems:
-        elem = elem.replace('(LR)', '').replace('(MR)', '').replace('(HR)','')
+        elem = elem.replace('(LR)', '').replace('(MR)', '').replace('(HR)', '')
         if elem in lst_of_elems:
             return elem
         elif elem not in lst_of_elems:
@@ -43,9 +50,10 @@ def element_formater(elem, lst_of_elems):
                         elem = elem.replace('(HR)', '')
                         elem = ''.join([c for c in elem if c.isalpha()])
                         if elem in lst_of_elems:
-                            return elem 
-                        else: 
-                            return 
+                            return elem
+                        else:
+                            return
+
 
 def round_me(x, LoD, elem):
     # replace values lower than limit of detection
@@ -60,13 +68,14 @@ def round_me(x, LoD, elem):
                 else:
                     if x >= 0: return float(Decimal(x).quantize(Decimal('0.001')))
 
+
 def correction(data, elem, internal_std):
     # calculates internal standard correction 
     # data: df with quantified values where columns are measured isotopes
     # el: element used as internal standard
     # internal_std: df of values of internal standard  where columns are elements for correction
-    print(elem)
-    print(element_formater(elem, data.columns))
+    # print(elem)
+    # print(element_formater(elem, data.columns))
     ratio = data[element_formater(elem, data.columns)].div(list(internal_std[elem]))
     return data.apply(lambda x: x/ratio)
 
@@ -75,10 +84,12 @@ def get_timestamp(strTime):
     # format string time from iolite to timestamp
     return datetime.datetime.strptime(strTime, '%Y-%m-%d %H:%M:%S.%f')
 
+
 def get_difference(start, now):
     # return time in seconds between 2 timestamps
     diff = now - start
     return diff.total_seconds()
+
 
 def get_index(data, time):
     # return closest index of MS time given time in seconds
@@ -88,6 +99,7 @@ def get_index(data, time):
                 return i+1
             else:
                 return i+2
+
 
 def get_diff_lst(iolite):
     # return list of times in seconds from start to every start and end of laser ablation for spots
@@ -99,6 +111,7 @@ def get_diff_lst(iolite):
     lst.append(get_difference(get_timestamp(iolite.loc[i,'Timestamp']),get_timestamp(iolite.loc[i+1,'Timestamp'])))
     return lst
 
+
 def get_diff_lst_line(iolite):
      # return list of times in seconds from start to every start and end of laser ablation for lines
     lst = []
@@ -108,3 +121,17 @@ def get_diff_lst_line(iolite):
             lst.append(get_difference(get_timestamp(iolite.loc[i,'Timestamp']),get_timestamp(iolite.loc[i+1,'Timestamp'])))
     lst.append(get_difference(get_timestamp(iolite.loc[i-2,'Timestamp']),get_timestamp(iolite.loc[i,'Timestamp'])))
     return lst
+
+
+def fmt(x, y):
+    #show z value on graph
+    Xflat, Yflat, Zflat = X.flatten(), Y.flatten(), arr.flatten()
+    dist = np.linalg.norm(np.vstack([Xflat - x, Yflat - y]), axis=0)
+    idx = np.argmin(dist)
+    z = Zflat[idx]
+    return 'x={x:.2f}  y={y:.2f}  z={z:.2f}'.format(x=x, y=y, z=z)
+
+
+def keep_elements(df, elements):
+    elem_to_drop = [el for el in df.columns if el not in elements]
+    return df.drop(elem_to_drop, axis='columns')

@@ -1,20 +1,22 @@
+import matplotlib.pyplot as plt
 import pandas as pd
 import xlrd
 import os
 import warnings
 import numpy as np
 from scipy import stats
-import matplotlib.pyplot as plt
+
 import datetime
 from scipy.signal import argrelextrema
 from side_functions import *
+
 
 class MSData(object):
     def __init__(self, filename, filetype='xlsx', instrument='Element'):
         """
         object holding LA-ICP-MS data for data reduction
         :param filename: str name of the file of measured MS data
-        :param filetype: str type of the file ['csv', 'xlsx']
+        `:param filetype: str type of the file ['csv', 'xlsx', 'asc']
         :param instrument: str type of MS instrument used ['Element', 'Agilent']
         """
         if instrument == 'Element':
@@ -57,8 +59,11 @@ class MSData(object):
 
         self.data.index = self.data.index.astype('float32')
         self.time = self.data.index
-        self.elements = self.data.columns
+        self.elements = list(map(elem_resolution, self.data.columns))
+        self.data.columns = self.elements
+        print(self.elements)
         self.srms = pd.ExcelFile('./SRM.xlsx').parse(index_col=0)
+        self.srm = None
         self.iolite = None
         self.names = None
         self.internal_std = None
@@ -67,11 +72,10 @@ class MSData(object):
 
         self.laser_off = []
         self.laser_on = []
-        self.skip = {'bcg_start':10, 
-                     'bcg_end':10,
-                     'sample_start':10,
-                     'sample_end':15}    # time in seconds to skip from each bcg and sample
-        
+        self.skip = {'bcg_start': 10,
+                     'bcg_end': 10,
+                     'sample_start': 10,
+                     'sample_end': 15}    # time in seconds to skip from each bcg and sample
 
         self.filter_line = None
         self.starts = None
@@ -80,16 +84,23 @@ class MSData(object):
         self.ratio = None
         self.quantified = None
         self.lod = None
+        self.correction_elements = None
         self.corrected_IS = None
         self.corrected_SO = None
-        
+
+        self.dx = None
+        self.dy = None
+        self.maps = {}
+
+        self.regression_values = None
+        self.calib = {}
 
     def read_param(self, path):
         xl = pd.ExcelFile(path)
         if 'names' in xl.sheet_names:
             self.names = list(xl.parse('names', header=None)[0])
         if 'internal standard' in xl.sheet_names:
-            self.internal_std = xl.parse('internal standard', header=0)
+            self.internal_std = xl.parse('internal standard', index_col=0, header=0)
         if 'total sum' in xl.sheet_names:
             self.sum_koeficients = xl.parse('total sum', index_col=0, header=None).to_dict()#[1]
 
@@ -98,8 +109,6 @@ class MSData(object):
         os.chdir(os.path.dirname(path))
         self.iolite = pd.read_csv(path, sep=",", engine='python')
         os.chdir(pwd)
-        print(self.iolite)
-        
 
     def plot_data(self, ax=None):
         if ax is None:
@@ -138,13 +147,13 @@ class MSData(object):
     def create_selector_iolite(self, start):
         # select starts and ends of ablation using iolite file  
         if self.iolite.empty:
+            print('Warning: Iolite not created.')
             return
-        lst = [x for x in self.iolite.loc[:7,' Comment'] if isinstance(x, str)]
-        for i in lst:
-            print(i, type(i))
-        if len(lst) == 2:
+        lst = [x for x in self.iolite.loc[:7, ' Comment'] if isinstance(x, str)]
+
+        if len(lst) == 1:
             difflst = get_diff_lst(self.iolite)
-        elif len(lst) == 1:
+        elif len(lst) == 2:
             difflst = get_diff_lst_line(self.iolite)
         timeindex = []
         for i in range(0, len(difflst)+1):
@@ -155,10 +164,12 @@ class MSData(object):
         self.ends = [index[i] for i in range(len(index)) if i %2!=0]
         
         self.create_on_off()
-        
 
     def create_selector_bcg(self, bcg_sd, bcg_time):
-        # select starts and ends of ablation based on selected element or sum of all using treshold calculated from background
+        """
+        select starts and ends of ablation based on selected element or sum of all using treshold
+        calculated from background
+        """
         bcg_nr = self.time_to_number(bcg_time)
         bcg = self.filter_line.iloc[0:bcg_nr].mean()
         std = self.filter_line.iloc[0:bcg_nr].std()
@@ -185,7 +196,7 @@ class MSData(object):
         """
         from starts and ends of ablation create laser_on and laser_off with skipped values
         """
-        print(self.starts[0], self.time_to_number(self.skip['bcg_end']))
+
         self.laser_off.append((0+self.time_to_number(self.skip['bcg_start']),self.starts[0]-self.time_to_number(self.skip['bcg_end'])))
         
         for i in range(len(self.starts)-1):
@@ -195,8 +206,7 @@ class MSData(object):
         self.laser_off.append((self.ends[-1]+self.time_to_number(self.skip['bcg_start']), len(self.time)-2-self.time_to_number(self.skip['bcg_end'])))
         self.laser_on.append((self.starts[-1]+self.time_to_number(self.skip['sample_start']), self.ends[-1]-self.time_to_number(self.skip['sample_end'])))
 
-        print(self.laser_off)
-        print(self.laser_on)
+
 
     def graph(self, ax=None, logax=False, el=None):
         """
@@ -223,9 +233,7 @@ class MSData(object):
                 ax.axvline(x=self.time[self.ends[i]], color='blue', linewidth=2)
 
         if self.laser_off :
-            # higlights bacground 
-            print(self.laser_off)
-            print(self.time)
+            # higlights bacground
             for off in self.laser_off:
                 #print(self.time[off[0]], self.time[off[1]])
                 try:
@@ -245,6 +253,11 @@ class MSData(object):
         # select reference material used for quantification
         if srm in self.srms.index:
             self.srm = self.srms.loc[srm,:]
+
+    def setxy(self, dx, dy):
+        # set x and y distance for elemental map
+        self.dx = dx
+        self.dy = dy
         
     def integrated_area(self, elem):
         # calculate area of a spot for given element
@@ -253,6 +266,7 @@ class MSData(object):
         line = self.data[elem]
         
         if not self.laser_on and not self.laser_off:
+            print('Warning')
             return
         for i in range(0, len(self.laser_on)):
             on = self.laser_on[i]
@@ -275,8 +289,8 @@ class MSData(object):
         # returns list of means
         means = []
         line = self.data[elem]
-        
         if not self.laser_on and not self.laser_off:
+            print('Warning')
             return
 
         for i in range(0, len(self.laser_on)):
@@ -286,23 +300,22 @@ class MSData(object):
             
             sample_y = list(line)[on[0]:on[1]]     
             bcg_y = list(line)[off_before[0]:off_before[1]] + list(line)[off_after[0]:off_after[1]]
-            means.append(np.mean(outlierDetection(sample_y))-np.mean(outlierDetection(bcg_y)))
+            means.append(np.mean(outlier_detection(sample_y))-np.mean(outlier_detection(bcg_y)))
         return means
-
 
     def average(self, method='area'):
         # calculate average signal for each spot with substracted background
         # method: 'area' uses integration of the peak 'intensity' uses mean of intensities
+
         self.average_peaks = pd.DataFrame(columns=list(self.elements))
         for elem in self.elements:
             if method == 'area':
                 self.average_peaks[elem]=(self.integrated_area(elem))
             if method == 'intensity':
-                self.average_peaks[elem]=(self. mean_intensity(elem))
+                self.average_peaks[elem]=(self.mean_intensity(elem))
         
         if self.names:
             self.average_peaks.index = self.names
-
 
     def quantification(self):
         # calculate quantification of intensities or areas using selected reference material
@@ -314,9 +327,11 @@ class MSData(object):
         self.quantified = spots.mul(self.ratio, axis='columns')
 
     def detection_limit(self, method='area', scale='all'):
-        # calculate limit of detection for analysis
-        # param: method = ['area','intensity'] use same mathod as for the average
-        # param: scale = ['begining', 'all']
+        """
+        calculate limit of detection for analysis
+        param: method = ['area','intensity'] use same method as for the average
+        param: scale = ['begining', 'all']
+        """
         if scale == 'all':
             bcg = pd.DataFrame(columns=self.data.columns)
             for (s,e) in self.laser_off:
@@ -335,13 +350,17 @@ class MSData(object):
         self.corrected_IS = []
         if self.internal_std.empty:
             return
-        correction_elements = self.internal_std.columns
-        for el in correction_elements:
-            self.corrected_IS.append(correction(self.quantified, el, self.internal_std))
-        print(self.corrected_IS)
+        self.correction_elements = list(self.internal_std.columns)
+        print(self.correction_elements)
+        for el in self.correction_elements:
+            print(el)
+            if el in self.elements:
+                self.corrected_IS.append(correction(self.quantified, el, self.internal_std))
+            #else:
+                #self.correction_elements.remove(el)
 
     def total_sum_correction(self):
-        # calculates total sum correction using koefficients given in PARAM file
+        # calculates total sum correction using coefficients given in PARAM file
         if not self.sum_koeficients:
             return
         self.corrected_SO = self.quantified.copy()
@@ -357,83 +376,133 @@ class MSData(object):
             if not elem:
                 continue
             self.corrected_SO[elem] = self.corrected_SO[elem] * self.sum_koeficients[key] / 100
-        print(self.corrected_SO)
 
     def report(self, method='correction SO'):
-        if method=='correction SO':
+        if method == 'correction SO':
             self.corrected_SO = self.corrected_SO.append(self.lod)
             for column in self.corrected_SO:
                 self.corrected_SO[column] = [round_me(value, self.lod, column) for value in self.corrected_SO[column]]    
             
-        if method=='correction IS':
+        if method == 'correction IS':
             d.corrected_IS = [df.append(d.lod) for df in d.corrected_IS]
             for df in self.corrected_IS:
                 for column in df:
                     df[column] = [round_me(value, self.lod, column) for value in df[column]]    
              
     def save(self, path, method='correction IS'):
-        if method =='correction IS':
+        if method == 'correction IS':
             writer = pd.ExcelWriter(path, engine='xlsxwriter')
-            for item, e in zip(self.corrected_IS, self.internal_std.columns):
+            for item, e in zip(self.corrected_IS, self.correction_elements):
                 item.to_excel(writer, sheet_name='Normalised_{}'.format(e))    
-            writer.save()        
-        
-
+            writer.save()
 
     def matrix_from_time(self, elem):
-        pass
+        # create elemental map from time resolved LA-ICP-MS data
+        if self.dx is None or self.dy is None:
+            print('Warning: Missing values dx or dy.')
+            return
+        line = self.data[elem]
+        d = {}
+        tmpy = 0
+
+        for i in range(0, len(self.laser_on)):
+            on = self.laser_on[i]
+            off_before = self.laser_off[i]
+            off_after = self.laser_off[i + 1]
+
+            tmpy = tmpy + self.dy
+            bcg = list(line)[off_before[0]:off_before[1]] + list(line)[off_after[0]:off_after[1]]
+            arr = np.array(line)[on[0]:on[1]] - np.mean(bcg)
+            arr[arr < 0] = 0
+            d[tmpy] = arr
+
+        df = pd.DataFrame.from_dict(d, orient='index')
+        tmpx = range(self.dx, self.dx * len(df.columns) + self.dx, self.dx)
+        df.columns = tmpx
+        return df
 
     def create_all_maps(self):
+        for el in self.elements:
+            self.maps[el] = self.matrix_from_time(el)
+
+    def rotate_map(self, elem):
+        if elem in self.maps.keys:
+            self.maps[elem] = np.rot90(self.maps[elem])
+        else:
+            print('Warning: Matrix does not exists.')
+
+    def elemental_image(self, elem, colourmap='jet'):
+        fig, ax = plt.subplots()
+        ax.imshow(self.maps[elem].values, cmap=colourmap)
+        plt.show()
+
+    def get_regression_values(self, method, srm):
+        self.average(method=method)
+        print(self.average_peaks)
+        self.set_srm(srm=srm)
+        print(self.srm)
+        for elem in self.elements:
+            print(elem)
+            print(self.srms.loc[srm, element_strip(elem)])
+            #self.regression_values.append(pd.DataFrame({'x': self.average_peaks[elem], 'y': self.srm[elem]}))
+
+    def calibration_equations(self):
         pass
 
-    def elemental_image():
+    def calibration_graph(self):
         pass
-
-    def calibration_equations():
-        pass
-
-    def calibration_graph():
-        pass
-
-
-
 
 
 if __name__ == '__main__':
-    d = MSData('C:\\Users\\Admin\\OneDrive - MUNI\\Geologie\\granaty_copjakova\\190322\\Dou2_Grt1_LR.asc',
-             #'C:\\Users\\Admin\\OneDrive - MUNI\\Archeologie\\Tomková\\meranie\\190407\\an2.csv',
-             #'C:\\Users\\Veronika\\OneDrive - MUNI\\Geologie\\granaty_copjakova\\190520\\SP1b_cpx_LR.asc',
-             filetype='asc',
-             instrument='Element')
-    print(d.data)
-    
-    
-    #d.read_iolite('C:\\Users\\Veronika\\OneDrive - MUNI\\Geologie\\granaty_copjakova\\190520\\SP1b_cpx.Iolite.csv')
-    d.read_param('C:\\Users\\Admin\\OneDrive - MUNI\\Geologie\\granaty_copjakova\\190322\\dou2_grt1_param.xlsx')
+
+    def test_spot():
+        d = MSData('/Users/nikadilli/OneDrive - MUNI/Geologie/granaty_copjakova/190715/Uhr17_prd_D_LR.asc',
+                   # 'C:\\Users\\Admin\\OneDrive - MUNI\\Archeologie\\Tomková\\meranie\\190407\\an2.csv',
+                   # 'C:\\Users\\Veronika\\OneDrive - MUNI\\Geologie\\granaty_copjakova\\190520\\SP1b_cpx_LR.asc',
+                   filetype='asc',
+                   instrument='Element')
+        print(d.data)
+
+        # d.read_iolite('C:\\Users\\Veronika\\OneDrive - MUNI\\Geologie\\granaty_copjakova\\190520\\SP1b_cpx.Iolite.csv')
+        d.read_param('/Users/nikadilli/OneDrive - MUNI/Geologie/granaty_copjakova/190715/PARAM_Uhr17_prdA.xlsx')
+        d.set_filtering_element('sum')
+        d.set_srm('NIST610')
+        d.set_ablation_time(60)
+        d.set_skip(10, 10, 10, 15)
+
+        # d.create_selector_iolite(90)
+        # d.create_selector_gradient(120)
+        d.create_selector_bcg(300, 50)
+
+        d.graph()
+        d.average(method='area')
+
+        d.quantification()
+        d.detection_limit(method='area', scale='begining')
+        print(d.quantified)
+        print(d.lod)
+        print(d.quantified.mean())
+        d.internal_standard_correction()
+        # d.total_sum_correction()
+        print(d.corrected_IS)
+        d.report(method='correction IS')
+        print(d.corrected_IS)
+        # d.corrected_SO.to_excel( 'C:\\Users\\Admin\\OneDrive - MUNI\\Archeologie\\Tomková\\meranie\\190408\\an2.xlsx')
+        d.save(path='/Users/nikadilli/OneDrive - MUNI/Geologie/granaty_copjakova/190715/Uhr17_prdD_area.xlsx')
+
+    def test_map():
+        d = MSData('/Users/nikadilli/code/Ilaps/test_data/mapa1c.csv', filetype='csv', instrument='Agilent')
+        d.read_iolite('/Users/nikadilli/code/Ilaps/test_data/mapa1.Iolite.csv')
+        d.set_filtering_element('sum')
+        d.set_skip(3,3,0,0)
+        d.create_selector_iolite(12)
+        d.graph()
+        d.setxy(50,50)
+        d.create_all_maps()
+        d.elemental_image('Al27')
+
+    d = MSData('/Users/nikadilli/code/Ilaps/test_data/data.csv', filetype='csv', instrument='raw')
     d.set_filtering_element('sum')
-    d.set_srm('NIST610')
-    d.set_ablation_time(60)
-    d.set_skip(10, 10, 10, 15)
-    
-    #d.create_selector_iolite(90)
-    #d.create_selector_gradient(120)
-    d.create_selector_bcg(300,50)
-
-    d.graph()
-    d.average(method='intensity')
-    
-    d.quantification()
-    d.detection_limit(method='intensity', scale='begining')
-    print(d.quantified)
-    print(d.lod)
-    print(d.quantified.mean())
-    d.internal_standard_correction()
-    #d.total_sum_correction()
-    print(d.corrected_IS)
-    d.report(method='correction IS')
-    print(d.corrected_IS)
-    #d.corrected_SO.to_excel( 'C:\\Users\\Admin\\OneDrive - MUNI\\Archeologie\\Tomková\\meranie\\190408\\an2.xlsx') 
-    d.save(path='C:\\Users\\Admin\\OneDrive - MUNI\\Geologie\\granaty_copjakova\\190322\\dou2_grt1_intensity2.xlsx')
-    
-
- 
+    d.create_selector_bcg(100, 20)
+    # d.graph()
+    d.get_regression_values('intensity', ['NIST610','NIST612'])
