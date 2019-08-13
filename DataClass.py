@@ -8,6 +8,7 @@ from scipy import stats
 
 import datetime
 from scipy.signal import argrelextrema
+from sklearn.linear_model import LinearRegression
 from side_functions import *
 
 
@@ -92,8 +93,8 @@ class MSData(object):
         self.dy = None
         self.maps = {}
 
-        self.regression_values = None
-        self.calib = {}
+        self.regression_values = {}
+        self.regression_equations = {}
 
     def read_param(self, path):
         xl = pd.ExcelFile(path)
@@ -141,7 +142,8 @@ class MSData(object):
         takes time in seconds returns number of measured values
         depends on integration time of MS method
         """
-        val = len(self.time[0:(np.abs(np.array(self.time.values, dtype=np.float32)-time)).argmin()])
+        val = len(self.time[0:(np.abs(np.array(self.time.values, dtype=np.float32)-np.abs(time))).argmin()])
+        if time < 0: val = -val
         return val
 
     def create_selector_iolite(self, start):
@@ -251,6 +253,9 @@ class MSData(object):
 
     def set_srm(self, srm):
         # select reference material used for quantification
+        if isinstance(srm, list):
+            self.srm = self.srms.loc[srm,:]
+            return
         if srm in self.srms.index:
             self.srm = self.srms.loc[srm,:]
 
@@ -384,7 +389,7 @@ class MSData(object):
                 self.corrected_SO[column] = [round_me(value, self.lod, column) for value in self.corrected_SO[column]]    
             
         if method == 'correction IS':
-            d.corrected_IS = [df.append(d.lod) for df in d.corrected_IS]
+            self.corrected_IS = [df.append(self.lod) for df in self.corrected_IS]
             for df in self.corrected_IS:
                 for column in df:
                     df[column] = [round_me(value, self.lod, column) for value in df[column]]    
@@ -396,7 +401,7 @@ class MSData(object):
                 item.to_excel(writer, sheet_name='Normalised_{}'.format(e))    
             writer.save()
 
-    def matrix_from_time(self, elem):
+    def matrix_from_time(self, elem, bcg):
         # create elemental map from time resolved LA-ICP-MS data
         if self.dx is None or self.dy is None:
             print('Warning: Missing values dx or dy.')
@@ -411,7 +416,10 @@ class MSData(object):
             off_after = self.laser_off[i + 1]
 
             tmpy = tmpy + self.dy
-            bcg = list(line)[off_before[0]:off_before[1]] + list(line)[off_after[0]:off_after[1]]
+            if bcg == 'beginning':
+                bcg = list(line)[self.laser_off[0][0]:self.laser_off[0][1]]
+            else:
+                bcg = list(line)[off_before[0]:off_before[1]] + list(line)[off_after[0]:off_after[1]]
             arr = np.array(line)[on[0]:on[1]] - np.mean(bcg)
             arr[arr < 0] = 0
             d[tmpy] = arr
@@ -421,9 +429,9 @@ class MSData(object):
         df.columns = tmpx
         return df
 
-    def create_all_maps(self):
+    def create_all_maps(self, bcg=None):
         for el in self.elements:
-            self.maps[el] = self.matrix_from_time(el)
+            self.maps[el] = self.matrix_from_time(el, bcg)
 
     def rotate_map(self, elem):
         if elem in self.maps.keys:
@@ -431,26 +439,51 @@ class MSData(object):
         else:
             print('Warning: Matrix does not exists.')
 
-    def elemental_image(self, elem, colourmap='jet'):
+    def elemental_image(self, elem, colourmap='jet', interpolate='none'):
         fig, ax = plt.subplots()
-        ax.imshow(self.maps[elem].values, cmap=colourmap)
+        im = ax.imshow(self.maps[elem], cmap=colourmap, interpolation=interpolate, extent=[0,self.maps[elem].columns[-1],self.maps[elem].index[-1],0]) #.values
+        fig.colorbar(im)
+        print(self.maps[elem].columns[-1])
         plt.show()
+
+    def export_matrices(self, path):
+        writer = pd.ExcelWriter(path, engine='xlsxwriter')
+        for el, mapa in self.maps.items():
+            mapa.to_excel(writer, sheet_name=el)
+        writer.save()
 
     def get_regression_values(self, method, srm):
         self.average(method=method)
-        print(self.average_peaks)
         self.set_srm(srm=srm)
-        print(self.srm)
         for elem in self.elements:
-            print(elem)
-            print(self.srms.loc[srm, element_strip(elem)])
-            #self.regression_values.append(pd.DataFrame({'x': self.average_peaks[elem], 'y': self.srm[elem]}))
+            self.regression_values[elem] = pd.DataFrame({'x': self.average_peaks[elem].values, 'y': self.srm[element_strip(elem)].values})
+            #print(self.regression_values)
 
-    def calibration_equations(self):
-        pass
+    def calibration_equations(self, intercept=False):
+        for elem in self.elements:
+            model = LinearRegression(fit_intercept=intercept, normalize=False)
+            x = np.array(self.regression_values[elem]['x']).reshape((-1, 1))
+            y = np.array(self.regression_values[elem]['y'])
+            model.fit(x, y)
+            self.regression_equations[elem] = (model.intercept_, model.coef_[0])
+            #print(self.regression_equations[elem])
 
-    def calibration_graph(self):
-        pass
+    def calibration_graph(self, elem):
+        fig, ax = plt.subplots()
+        x = np.array(self.regression_values[elem]['x'])
+        y = np.array(self.regression_values[elem]['y'])
+        ax.plot(x,y, 'bo')
+        # add regression line
+        x = np.linspace(0, x.max(), 100)
+        a = self.regression_equations[elem][1]
+        b = self.regression_equations[elem][0]
+        y = a * x + b
+        plt.plot(x, y, '-r', label='y={:.2E}x+{:.2E}'.format(a,b))
+        plt.legend(loc='upper left')
+        plt.xlim(0,)
+        plt.ylim(0,)
+        plt.grid()
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -491,18 +524,25 @@ if __name__ == '__main__':
         d.save(path='/Users/nikadilli/OneDrive - MUNI/Geologie/granaty_copjakova/190715/Uhr17_prdD_area.xlsx')
 
     def test_map():
-        d = MSData('/Users/nikadilli/code/Ilaps/test_data/mapa1c.csv', filetype='csv', instrument='Agilent')
-        d.read_iolite('/Users/nikadilli/code/Ilaps/test_data/mapa1.Iolite.csv')
+        d = MSData('/Users/nikadilli/Google Drive/glioma tvorba matic/15072019/st P 3/glioma st P3.csv', filetype='csv', instrument='raw')
+            #'/Users/nikadilli/code/Ilaps/test_data/mapa1c.csv', filetype='csv', instrument='Agilent') ⁩ ▸ ⁨⁩
+        d.read_iolite('/Users/nikadilli/Google Drive/glioma tvorba matic/15072019/st P 3/glioma st P3.Iolite.csv')
         d.set_filtering_element('sum')
-        d.set_skip(3,3,0,0)
-        d.create_selector_iolite(12)
+        d.set_skip(6,2,-2,-6)
+        d.create_selector_iolite(11)
         d.graph()
-        d.setxy(50,50)
-        d.create_all_maps()
-        d.elemental_image('Al27')
+        d.setxy(778, 200)
+        d.create_all_maps(bcg='begining')
+        d.export_matrices('/Users/nikadilli/Google Drive/glioma tvorba matic/15072019/st P 3/matica.xlsx')
+        d.elemental_image(elem='P31', interpolate='bicubic')
 
-    d = MSData('/Users/nikadilli/code/Ilaps/test_data/data.csv', filetype='csv', instrument='raw')
-    d.set_filtering_element('sum')
-    d.create_selector_bcg(100, 20)
-    # d.graph()
-    d.get_regression_values('intensity', ['NIST610','NIST612'])
+    def test_calib():
+        d = MSData('/Users/nikadilli/code/Ilaps/test_data/data.csv', filetype='csv', instrument='raw')
+        d.set_filtering_element('sum')
+        d.create_selector_bcg(100, 20)
+        # d.graph()
+        d.get_regression_values('intensity', ['NIST612','NIST610'])
+        d.calibration_equations()
+        d.calibration_graph('Na23')
+
+    test_spot()
