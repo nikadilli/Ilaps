@@ -131,4 +131,4 @@ dmypy.json
 .pyre/
 
 # Visual studio code
-./vscode
+.vscode/
