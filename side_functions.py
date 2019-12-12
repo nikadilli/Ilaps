@@ -113,7 +113,7 @@ def get_diff_lst(iolite):
 
 
 def get_diff_lst_line(iolite):
-     # return list of times in seconds from start to every start and end of laser ablation for lines
+    # return list of times in seconds from start to every start and end of laser ablation for lines
     lst = []
     for i in range(1,len(iolite['Timestamp'])-1):
         if (i-6)%7==0:
@@ -124,7 +124,7 @@ def get_diff_lst_line(iolite):
 
 
 def fmt(x, y):
-    #show z value on graph
+    # show z value on graph
     Xflat, Yflat, Zflat = X.flatten(), Y.flatten(), arr.flatten()
     dist = np.linalg.norm(np.vstack([Xflat - x, Yflat - y]), axis=0)
     idx = np.argmin(dist)
@@ -135,3 +135,11 @@ def fmt(x, y):
 def keep_elements(df, elements):
     elem_to_drop = [el for el in df.columns if el not in elements]
     return df.drop(elem_to_drop, axis='columns')
+
+
+def is_digit(n):
+    try:
+        int(n)
+        return True
+    except ValueError:
+        return False
