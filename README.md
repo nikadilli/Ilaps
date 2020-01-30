@@ -8,7 +8,7 @@ Ilaps (**I**maging of **L**aser **a**blation **p**lasma **s**pectrometry) is a p
 
 ## Run from code 
 
-1. Python 3.6 or 3.7 is necessary to run the code. Download [here](https://www.python.org/downloads/) and follow the instalation.
+1. Python 3 is necessary to run the code. Download [here](https://www.python.org/downloads/) and follow the instalation.
 2. Copy or clone this repository.
 3. Open terminal/cmd and navigate to the Ilaps folder.
   * `cd path/to/folder/Ilaps`
