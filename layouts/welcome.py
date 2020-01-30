@@ -7,8 +7,6 @@ from DataClass import MSData
 from widgets.pandas_model import PandasModel
 
 from xlrd import XLRDError
-import pandas as pd
-
 
 class Welcome(QWidget):
     """
@@ -94,7 +92,7 @@ class Welcome(QWidget):
         """
         Fill lineEdit with path to file from user
         """
-        filename, filters = QFileDialog.getOpenFileName(self, caption='Open file', dir='.',
+        filename, filters = QFileDialog.getOpenFileName(self, caption='Open file', dir='',
                                                         filter='All Files(*.*);; Excel Files(*.xlsx)')
         if filename:
             entry.setText(filename)
@@ -134,6 +132,7 @@ class Welcome(QWidget):
         if self.dataEntry3.text():
             try:
                 self.parent.Data.read_iolite(str(self.dataEntry3.text()))
+                print(self.parent.Data.iolite)
             except FileNotFoundError as e:
                 error_dialog = QErrorMessage()
                 error_dialog.showMessage('{}'.format(e))
@@ -164,16 +163,10 @@ class Welcome(QWidget):
         self.parent.data_select.canvas.draw()
 
         # for tab in self.parent.bulk_analysis.table.tabLst.values():
-            # self.parent.bulk_analysis.table.table[tab].setSpan(1,1,1,1)
+            # self.parent.bulk_analysis.table.table[tab].clearSpans()
 
-            #model = PandasModel(pd.DataFrame())
-            #self.parent.bulk_analysis.table.table[tab].setModel(model)
-        #self.table.setModel(model)
-
-        if self.parent.Data.data is not None:
-            model = PandasModel(self.parent.Data.data)
-            self.parent.bulk_analysis.table.table['Raw'].setModel(model)
-
+        model = PandasModel(self.parent.Data.data)
+        self.parent.bulk_analysis.table.table['Raw'].setModel(model)
 
 
 

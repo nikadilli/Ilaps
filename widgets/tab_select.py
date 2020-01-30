@@ -39,6 +39,9 @@ class SelectTab(QWidget):
         self.start = QLineEdit()
         layout.addRow("Start time", self.start)
         self.tabs.setTabText(1, "Iolite")
+        self.namesCheckBox = QCheckBox('')
+        self.namesCheckBox.setChecked(False)
+        layout.addRow("Set names from iolite", self.namesCheckBox)
         self.tab2.setLayout(layout)
 
     def tab3UI(self):

@@ -13,74 +13,78 @@ from side_functions import *
 
 
 class MSData(object):
-    def __init__(self, filename, filetype='xlsx', instrument='Element'):
+    def __init__(self, filename=None, filetype=None, instrument=None):
         """
         object holding LA-ICP-MS data for data reduction
         :param filename: str name of the file of measured MS data
         `:param filetype: str type of the file ['csv', 'xlsx', 'asc']
         :param instrument: str type of MS instrument used ['Element', 'Agilent']
         """
-        if instrument == 'Element':
-            skipfooter = 4
-            header = 1
-            drop = 9
-        elif instrument == 'Agilent':
-            skipfooter = 4
-            header = 3
-            drop = 3
-        else:
-            skipfooter = 0
-            header = 0
-            drop = 0
+        if filename:
+            if instrument == 'Element':
+                skipfooter = 4
+                header = 1
+                drop = 9
+            elif instrument == 'Agilent':
+                skipfooter = 4
+                header = 3
+                drop = 3
+            else:
+                skipfooter = 0
+                header = 0
+                drop = 0
 
-        if filetype == 'xlsx':
-            pwd = os.getcwd()
-            os.chdir(os.path.dirname(filename))
-            self.imported = pd.ExcelFile(filename)
-            self.data = self.imported.parse(0, index_col=0, skipfooter=skipfooter, header=header)
-            self.data = self.data.drop(self.data.index[:drop], axis=0)
-            os.chdir(pwd)
-        elif filetype == 'csv':
-            pwd = os.getcwd()
-            os.chdir(os.path.dirname(filename))
-            self.data = pd.read_csv(filename, sep=',', index_col=0, skipfooter=skipfooter,
-                                    header=header, engine='python')
-            os.chdir(pwd)
-        elif filetype == 'asc':
-            pwd = os.getcwd()
-            os.chdir(os.path.dirname(filename))
-            self.data = pd.read_csv(filename, sep='\t', index_col=0, skipfooter=skipfooter,
-                                    header=header, engine='python')
-            self.data = self.data.drop(self.data.index[:drop], axis=0)
-            self.data.dropna(axis=1, how='all', inplace=True)
-            self.data = self.data.apply(pd.to_numeric, errors='coerce')
-            os.chdir(pwd)
-        else:
-            warnings.warn('File type not supported.')
+            if filetype == 'xlsx':
+                pwd = os.getcwd()
+                os.chdir(os.path.dirname(filename))
+                self.imported = pd.ExcelFile(filename)
+                self.data = self.imported.parse(0, index_col=0, skipfooter=skipfooter, header=header)
+                self.data = self.data.drop(self.data.index[:drop], axis=0)
+                os.chdir(pwd)
+                # TODO xlsx doesnt work with agilent type
+            elif filetype == 'csv':
+                pwd = os.getcwd()
+                os.chdir(os.path.dirname(filename))
+                self.data = pd.read_csv(filename, sep=',', index_col=0, skipfooter=skipfooter,
+                                        header=header, engine='python')
+                os.chdir(pwd)
+            elif filetype == 'asc':
+                pwd = os.getcwd()
+                os.chdir(os.path.dirname(filename))
+                self.data = pd.read_csv(filename, sep='\t', index_col=0, skipfooter=skipfooter,
+                                        header=header, engine='python')
+                self.data = self.data.drop(self.data.index[:drop], axis=0)
+                self.data.dropna(axis=1, how='all', inplace=True)
+                self.data = self.data.apply(pd.to_numeric, errors='coerce')
+                os.chdir(pwd)
+            else:
+                warnings.warn('File type not supported.')
 
-        self.data.index = self.data.index.astype('float32')
-        self.time = self.data.index
-        self.elements = list(map(elem_resolution, self.data.columns))
-        self.data.columns = self.elements
-        print(self.elements)
+            self.data.index = self.data.index.astype('float32')
+            self.time = self.data.index
+            self.elements = list(map(elem_resolution, self.data.columns))
+            self.data.columns = self.elements
+
         self.srms = pd.ExcelFile('./SRM.xlsx').parse(index_col=0)
+        self.sum_koeficients = pd.ExcelFile('./default_sum_koef.xlsx').parse(0, index_col=0, header=None).to_dict()[1]
+
         self.srm = None
         self.iolite = None
         self.names = None
         self.internal_std = None
-        self.sum_koeficients = None
         self.ablation_time = None
 
         self.laser_off = []
         self.laser_on = []
-        self.skip = {'bcg_start': 10,
-                     'bcg_end': 10,
-                     'sample_start': 10,
-                     'sample_end': 15}    # time in seconds to skip from each bcg and sample
+        self.skip = {'bcg_start': 0,
+                     'bcg_end': 0,
+                     'sample_start': 0,
+                     'sample_end': 0}    # time in seconds to skip from each bcg and sample
 
         self.filter_line = None
         self.starts = None
         self.ends = None
+        self.bcg = None
         self.average_peaks = None
         self.ratio = None
         self.quantified = None
@@ -92,6 +96,7 @@ class MSData(object):
         self.dx = None
         self.dy = None
         self.maps = {}
+        self.qmaps = {}
 
         self.regression_values = {}
         self.regression_equations = {}
@@ -103,13 +108,14 @@ class MSData(object):
         if 'internal standard' in xl.sheet_names:
             self.internal_std = xl.parse('internal standard', index_col=0, header=0)
         if 'total sum' in xl.sheet_names:
-            self.sum_koeficients = xl.parse('total sum', index_col=0, header=None).to_dict()#[1]
+            self.sum_koeficients = xl.parse('total sum', index_col=0, header=None).to_dict()[1]
 
     def read_iolite(self, path):
         pwd = os.getcwd()
         os.chdir(os.path.dirname(path))
         self.iolite = pd.read_csv(path, sep=",", engine='python')
         os.chdir(pwd)
+        print(names_from_iolite(self.iolite))
 
     def plot_data(self, ax=None):
         if ax is None:
@@ -130,12 +136,16 @@ class MSData(object):
         # set time of ablation spot/line in seconds
         self.ablation_time = time
         
-    def set_skip(self, bcg_s, bcg_e, sig_s, sig_e):
+    def set_skip(self, bcg_s=None, bcg_e=None, sig_s=None, sig_e=None):
         # set time skipped on start and end of background and ablation in seconds
-        self.skip ['bcg_start'] = bcg_s
-        self.skip ['bcg_end'] = bcg_e
-        self.skip ['sample_start'] = sig_s
-        self.skip ['sample_end'] = sig_e   
+        if bcg_s is not None:
+            self.skip ['bcg_start'] = bcg_s
+        if bcg_e is not None:
+            self.skip ['bcg_end'] = bcg_e
+        if sig_s is not None:
+            self.skip ['sample_start'] = sig_s
+        if sig_e is not None:
+            self.skip ['sample_end'] = sig_e
 
     def time_to_number(self, time):
         """
@@ -153,9 +163,9 @@ class MSData(object):
             return
         lst = [x for x in self.iolite.loc[:7, ' Comment'] if isinstance(x, str)]
 
-        if len(lst) == 1:
+        if len(lst) == 2:
             difflst = get_diff_lst(self.iolite)
-        elif len(lst) == 2:
+        elif len(lst) == 1:
             difflst = get_diff_lst_line(self.iolite)
         timeindex = []
         for i in range(0, len(difflst)+1):
@@ -190,14 +200,18 @@ class MSData(object):
         param time_of_cycle: time of the ablation and half of the pause between ablations in seconds 
         """
         n = self.time_to_number(time_of_cycle) # number of values for one spot and half bcg
-        self.starts = list(argrelextrema(np.gradient(self.filter_line.values), np.greater_equal, order=n)[0])
-        self.ends = list(argrelextrema(np.gradient(self.filter_line.values), np.less_equal, order=n)[0])
+        self.ends = list(argrelextrema(np.gradient(self.filter_line.values), np.greater_equal, order=n)[0])
+        self.starts = list(argrelextrema(np.gradient(self.filter_line.values), np.less_equal, order=n)[0])
+        print(self.starts)
+        print(self.ends)
         self.create_on_off()
 
     def create_on_off(self):
         """
         from starts and ends of ablation create laser_on and laser_off with skipped values
         """
+        self.laser_off = []
+        self.laser_on = []
 
         self.laser_off.append((0+self.time_to_number(self.skip['bcg_start']),self.starts[0]-self.time_to_number(self.skip['bcg_end'])))
         
@@ -208,8 +222,6 @@ class MSData(object):
         self.laser_off.append((self.ends[-1]+self.time_to_number(self.skip['bcg_start']), len(self.time)-2-self.time_to_number(self.skip['bcg_end'])))
         self.laser_on.append((self.starts[-1]+self.time_to_number(self.skip['sample_start']), self.ends[-1]-self.time_to_number(self.skip['sample_end'])))
 
-
-
     def graph(self, ax=None, logax=False, el=None):
         """
         create matplotlib graph of intensity in time for ablation
@@ -217,12 +229,14 @@ class MSData(object):
         """
         if ax==None:
             fig,ax = plt.subplots()
+
         ax.cla()
+        ax.clear()
         # if element is defined, plot only one element, otherwise all
         if el:
-            self.data.plot(ax=ax, y=el, kind = 'line', legend=False) 
+            self.data.plot(ax=ax, y=el, kind='line', legend=False)
         else:
-            self.data.plot(ax=ax, kind = 'line', legend=False)
+            self.data.plot(ax=ax, kind='line', legend=False)
 
         if logax:
             ax.set_yscale('log')
@@ -241,7 +255,7 @@ class MSData(object):
                 try:
                     ax.axvspan(self.time[off[0]], self.time[off[1]], alpha=0.2, color='red')
                 except:
-                    pass
+                    warnings.warn('something is wrong')
 
         
         if self.laser_on:
@@ -258,6 +272,14 @@ class MSData(object):
             return
         if srm in self.srms.index:
             self.srm = self.srms.loc[srm,:]
+
+    def background(self, elem, scale):
+        if scale == 'beginning':
+            line = list(self.data[elem])
+            self.bcg = line[:self.laser_off[0][1]]
+            print(self.bcg)
+            # self.bcg = sum(self.bcg)/len(self.bcg)
+            # print(self.bcg)
 
     def setxy(self, dx, dy):
         # set x and y distance for elemental map
@@ -289,7 +311,7 @@ class MSData(object):
             areas.append(np.trapz(sample_y, sample_x) - np.trapz(new_y_sample, sample_x))
         return areas
 
-    def mean_intensity(self, elem):
+    def mean_intensity(self, elem, scale):
         # calculate mean intensity of a spot for given element
         # returns list of means
         means = []
@@ -297,35 +319,47 @@ class MSData(object):
         if not self.laser_on and not self.laser_off:
             print('Warning')
             return
+        if scale == 'beginning':
+            self.background(elem, scale)
+            bcg_y = self.bcg
 
         for i in range(0, len(self.laser_on)):
             on = self.laser_on[i]
             off_before = self.laser_off[i]
             off_after = self.laser_off[i+1]
             
-            sample_y = list(line)[on[0]:on[1]]     
-            bcg_y = list(line)[off_before[0]:off_before[1]] + list(line)[off_after[0]:off_after[1]]
+            sample_y = list(line)[on[0]:on[1]]
+            if scale == 'all':
+                bcg_y = list(line)[off_before[0]:off_before[1]] + list(line)[off_after[0]:off_after[1]]
+
             means.append(np.mean(outlier_detection(sample_y))-np.mean(outlier_detection(bcg_y)))
         return means
 
-    def average(self, method='area'):
+    def average(self, method='area', scale='all'):
         # calculate average signal for each spot with substracted background
         # method: 'area' uses integration of the peak 'intensity' uses mean of intensities
 
         self.average_peaks = pd.DataFrame(columns=list(self.elements))
         for elem in self.elements:
             if method == 'area':
-                self.average_peaks[elem]=(self.integrated_area(elem))
+                self.average_peaks[elem] = (self.integrated_area(elem))
             if method == 'intensity':
-                self.average_peaks[elem]=(self.mean_intensity(elem))
+                self.average_peaks[elem] = (self.mean_intensity(elem, scale))
         
         if self.names:
+            try:
+                self.average_peaks.index = self.names
+            except ValueError as e:
+                warnings.warn('Unable to match peak names to data.')
+                print(e)
+        else:
+            self.names = ['peak_{}'.format(i) for i in range(1, len(self.average_peaks.index)+1)]
             self.average_peaks.index = self.names
 
     def quantification(self):
         # calculate quantification of intensities or areas using selected reference material
         if not self.names or self.srm.empty or self.average_peaks.empty: 
-            return
+            warnings.warn('Missing data.')
         spots = self.average_peaks.iloc[[i for i,val in enumerate(self.names) if val!=self.srm.name]]
         stdsig = self.average_peaks.iloc[[i for i,val in enumerate(self.names) if val==self.srm.name]].mean(axis=0)
         self.ratio = [float(self.srm[element_strip(el)])/float(stdsig[el]) for el in stdsig.index]
@@ -335,13 +369,13 @@ class MSData(object):
         """
         calculate limit of detection for analysis
         param: method = ['area','intensity'] use same method as for the average
-        param: scale = ['begining', 'all']
+        param: scale = ['beginning', 'all']
         """
         if scale == 'all':
             bcg = pd.DataFrame(columns=self.data.columns)
             for (s,e) in self.laser_off:
                 bcg = pd.concat([bcg, self.data.iloc[np.r_[s:e],:]])
-        elif scale == 'begining':
+        elif scale == 'beginning':
             bcg = self.data.iloc[self.laser_off[0][0]:self.laser_off[0][1]]
         if method == 'area':
             self.lod = (bcg.std()*self.ablation_time).mul(self.ratio)
@@ -367,7 +401,9 @@ class MSData(object):
     def total_sum_correction(self):
         # calculates total sum correction using coefficients given in PARAM file
         if not self.sum_koeficients:
+            warnings.warn('Missing coeficients for total sum correction.')
             return
+        print(self.sum_koeficients)
         self.corrected_SO = self.quantified.copy()
         for key in self.sum_koeficients:
             elem = element_formater(key, self.corrected_SO.columns)
@@ -382,24 +418,36 @@ class MSData(object):
                 continue
             self.corrected_SO[elem] = self.corrected_SO[elem] * self.sum_koeficients[key] / 100
 
-    def report(self, method='correction SO'):
-        if method == 'correction SO':
+    def report(self):
+        if self.corrected_SO is not None:
             self.corrected_SO = self.corrected_SO.append(self.lod)
             for column in self.corrected_SO:
                 self.corrected_SO[column] = [round_me(value, self.lod, column) for value in self.corrected_SO[column]]    
             
-        if method == 'correction IS':
+        if self.corrected_IS is not None:
             self.corrected_IS = [df.append(self.lod) for df in self.corrected_IS]
             for df in self.corrected_IS:
                 for column in df:
-                    df[column] = [round_me(value, self.lod, column) for value in df[column]]    
+                    df[column] = [round_me(value, self.lod, column) for value in df[column]]
+
+        if self.quantified is not None:
+            self.quantified = self.quantified.append(self.lod)
+            for column in self.quantified :
+                self.quantified [column] = [round_me(value, self.lod, column) for value in self.quantified [column]]
              
-    def save(self, path, method='correction IS'):
-        if method == 'correction IS':
-            writer = pd.ExcelWriter(path, engine='xlsxwriter')
+    def save(self, path, data=None):
+        if data is None and self.quantified is not None:
+            data = self.quantified
+        elif data is None and self.quantified is None:
+            warnings.warn('No data to save.')
+
+        writer = pd.ExcelWriter(path, engine='xlsxwriter')
+        if isinstance(data, list):
             for item, e in zip(self.corrected_IS, self.correction_elements):
-                item.to_excel(writer, sheet_name='Normalised_{}'.format(e))    
-            writer.save()
+                item.to_excel(writer, sheet_name='Normalised_{}'.format(e))
+        else:
+            data.to_excel(writer, sheet_name='report')
+        writer.save()
 
     def matrix_from_time(self, elem, bcg):
         # create elemental map from time resolved LA-ICP-MS data
@@ -434,30 +482,78 @@ class MSData(object):
             self.maps[el] = self.matrix_from_time(el, bcg)
 
     def rotate_map(self, elem):
-        if elem in self.maps.keys:
-            self.maps[elem] = np.rot90(self.maps[elem])
+        if elem in self.maps.keys():
+            rotated = np.rot90(self.maps[elem])
+            if rotated.shape[0] == len(self.maps[elem].index):
+                indexes = self.maps[elem].index
+            else:
+                indexes = self.maps[elem].columns
+
+            if rotated.shape[1] == len(self.maps[elem].columns):
+                columns = self.maps[elem].columns
+            else:
+                columns = self.maps[elem].index
+
+            self.maps[elem] = pd.DataFrame(rotated, columns=columns, index=indexes)
         else:
             print('Warning: Matrix does not exists.')
 
-    def elemental_image(self, elem, colourmap='jet', interpolate='none'):
-        fig, ax = plt.subplots()
-        im = ax.imshow(self.maps[elem], cmap=colourmap, interpolation=interpolate, extent=[0,self.maps[elem].columns[-1],self.maps[elem].index[-1],0]) #.values
-        fig.colorbar(im)
-        print(self.maps[elem].columns[-1])
+    def elemental_image(self, elem, fig=None, ax=None, vmin=None, vmax=None,
+                        colourmap='jet', interpolate='none', title='', units='', quantified=False):
+
+        if fig is None or ax is None:
+            fig, ax = plt.subplots()
+        ax.cla()
+
+        if quantified is True:
+            if elem in self.qmaps.keys():
+                data = self.qmaps[elem]
+            else:
+                warnings.warn('Elemental map not quantified.')
+                data = self.qmaps[elem]
+        else:
+            if elem in self.maps.keys():
+                data = self.maps[elem]
+            else:
+                warnings.warn('Elemental map not generated.')
+                data = self.qmaps[elem]
+
+        im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap=colourmap, interpolation=interpolate,
+                       extent=[0,self.maps[elem].columns[-1], self.maps[elem].index[-1], 0]) # .values
+        clb = fig.colorbar(im)
+        clb.ax.set_title(units)
+        fig.suptitle(title)
         plt.show()
 
-    def export_matrices(self, path):
+    def quantify_map(self, elem, intercept, slope):
+        if elem not in self.elements:
+            warnings.warn('Element map doesnt exist.')
+            return
+        self.qmaps[elem] = (self.maps[elem]-intercept)/slope
+
+    def export_matrices(self, path, quantified=False):
         writer = pd.ExcelWriter(path, engine='xlsxwriter')
-        for el, mapa in self.maps.items():
-            mapa.to_excel(writer, sheet_name=el)
-        writer.save()
+        if quantified:
+            for el, mapa in self.qmaps.items():
+                mapa.to_excel(writer, sheet_name=el)
+            writer.save()
+
+        else:
+            for el, mapa in self.maps.items():
+                mapa.to_excel(writer, sheet_name=el)
+            writer.save()
+
+    def import_matrices(self, path):
+        file = pd.ExcelFile(path)
+        for el in file.sheet_names:
+            self.maps[el] = file.parse(el, index_col=0)
+        self.elements = file.sheet_names
 
     def get_regression_values(self, method, srm):
         self.average(method=method)
         self.set_srm(srm=srm)
         for elem in self.elements:
-            self.regression_values[elem] = pd.DataFrame({'x': self.average_peaks[elem].values, 'y': self.srm[element_strip(elem)].values})
-            #print(self.regression_values)
+            self.regression_values[elem] = pd.DataFrame({'x': self.srm[element_strip(elem)].values, 'y': self.average_peaks[elem].values})
 
     def calibration_equations(self, intercept=False):
         for elem in self.elements:
@@ -468,8 +564,10 @@ class MSData(object):
             self.regression_equations[elem] = (model.intercept_, model.coef_[0])
             #print(self.regression_equations[elem])
 
-    def calibration_graph(self, elem):
-        fig, ax = plt.subplots()
+    def calibration_graph(self, elem, ax=None):
+        if ax is None:
+            fig, ax = plt.subplots()
+        ax.cla()
         x = np.array(self.regression_values[elem]['x'])
         y = np.array(self.regression_values[elem]['y'])
         ax.plot(x,y, 'bo')
@@ -478,11 +576,13 @@ class MSData(object):
         a = self.regression_equations[elem][1]
         b = self.regression_equations[elem][0]
         y = a * x + b
-        plt.plot(x, y, '-r', label='y={:.2E}x+{:.2E}'.format(a,b))
-        plt.legend(loc='upper left')
-        plt.xlim(0,)
-        plt.ylim(0,)
-        plt.grid()
+        ax.plot(x, y, '-r', label='y={:.2E}x+{:.2E}'.format(a,b))
+        ax.legend(loc='upper left')
+        ax.set_xlabel('concentration')
+        ax.set_ylabel('intensity')
+        ax.set_xlim(0,)
+        ax.set_ylim(0,)
+        ax.set_title(elem)
         plt.show()
 
 
@@ -524,17 +624,17 @@ if __name__ == '__main__':
         d.save(path='/Users/nikadilli/OneDrive - MUNI/Geologie/granaty_copjakova/190715/Uhr17_prdD_area.xlsx')
 
     def test_map():
-        d = MSData('/Users/nikadilli/Google Drive/glioma tvorba matic/15072019/st P 3/glioma st P3.csv', filetype='csv', instrument='raw')
+        d = MSData('/Users/nikadilli/Downloads/mapa vzorek 12.csv', filetype='csv', instrument='raw')
             #'/Users/nikadilli/code/Ilaps/test_data/mapa1c.csv', filetype='csv', instrument='Agilent') ⁩ ▸ ⁨⁩
-        d.read_iolite('/Users/nikadilli/Google Drive/glioma tvorba matic/15072019/st P 3/glioma st P3.Iolite.csv')
+        d.read_iolite('//Users/nikadilli/Downloads/190729vyzorek12n.Iolite.csv')
         d.set_filtering_element('sum')
-        d.set_skip(6,2,-2,-6)
-        d.create_selector_iolite(11)
+        d.set_skip(3,3,0,0)
+        d.create_selector_iolite(20)
         d.graph()
-        d.setxy(778, 200)
+        d.setxy(50, 50)
         d.create_all_maps(bcg='begining')
-        d.export_matrices('/Users/nikadilli/Google Drive/glioma tvorba matic/15072019/st P 3/matica.xlsx')
-        d.elemental_image(elem='P31', interpolate='bicubic')
+        # d.export_matrices('/Users/nikadilli/Google Drive/glioma tvorba matic/05082019/st zbytek/matica.xlsx')
+        d.elemental_image(elem='Fe56', interpolate='bicubic')
 
     def test_calib():
         d = MSData('/Users/nikadilli/code/Ilaps/test_data/data.csv', filetype='csv', instrument='raw')
@@ -545,4 +645,4 @@ if __name__ == '__main__':
         d.calibration_equations()
         d.calibration_graph('Na23')
 
-    test_spot()
+    test_map()

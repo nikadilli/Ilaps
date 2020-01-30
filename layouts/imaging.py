@@ -7,7 +7,6 @@ from DataClass import MSData
 
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-import pandas as pd
 
 
 class Imaging(QWidget):
@@ -26,7 +25,7 @@ class Imaging(QWidget):
         self.dy = QLineEdit()
         layout.addRow(QLabel("Delta y: "), self.dy)
         self.background = QComboBox()
-        self.background.addItems(['beginning', 'all'])
+        self.background.addItems(['begining', 'all'])
         layout.addRow('Background: ', self.background)
         layout.addRow(QLabel(""),)
         self.minz = QLineEdit()
@@ -88,9 +87,6 @@ class Imaging(QWidget):
         self.importMatrixBtn = QPushButton('Import Matrix')
         layout2.addWidget(self.importMatrixBtn)
         self.importMatrixBtn.clicked.connect(self.import_matrix)
-        self.importRegrBtn = QPushButton('Import Regression')
-        layout2.addWidget(self.importRegrBtn)
-        self.importRegrBtn.clicked.connect(self.import_regr_eq)
         layout2.addStretch(1)
         self.exportMatrixBtn = QPushButton('Export Matrix')
         layout2.addWidget(self.exportMatrixBtn)
@@ -184,16 +180,13 @@ class Imaging(QWidget):
         if not filename:
             return
 
-        self.parent.Data = MSData()
+        if self.parent.Data is not None:
+            self.parent.Data = MSData()
 
         self.parent.Data.import_matrices(filename)
         elems = self.parent.Data.elements
-        self.element.clear()
         self.element.addItems(elems)
         self.parent.show_data.elem.addItems(elems)
-
-        self.ax.clear()
-        self.ax.figure.canvas.draw_idle()
 
         # msg_dialog = QMessageBox()
         # msg_dialog.setIcon(QMessageBox.Information)
@@ -215,14 +208,14 @@ class Imaging(QWidget):
 
     def quantify(self):
         if self.intercept.text().isdigit():
-            intercept = float(self.intercept.text())
+            intercept = int(self.intercept.text())
         else:
             error_dialog = QErrorMessage()
             error_dialog.showMessage('Missing intercept.')
             error_dialog.exec_()
             return
         if self.slope.text().isdigit():
-            slope = float(self.slope.text())
+            slope = int(self.slope.text())
         else:
             error_dialog = QErrorMessage()
             error_dialog.showMessage('Missing slope.')
@@ -234,26 +227,10 @@ class Imaging(QWidget):
         self.image(quantified=True)
 
     def quantify_all(self):
-        if self.parent.Data.regression_equations is None:
-            msg_dialog = QMessageBox()
-            msg_dialog.setIcon(QMessageBox.Information)
-            msg_dialog.setText('Missing regression equations.')
-            msg_dialog.exec_()
-            return
-
-        for elem in self.parent.Data.regression_equations.keys():
-            if elem in self.parent.Data.elements:
-                self.parent.Data.quantify_map(elem=elem,
-                                              intercept=self.parent.Data.regression_equations[elem][0],
-                                              slope=self.parent.Data.regression_equations[elem][1])
-
-    def import_regr_eq(self):
-        filename, filters = QFileDialog.getOpenFileName(self, caption='Open file', dir='.',
-                                                        filter="Excel files (*.xlsx)")
-        if not filename:
-            return
-        file = pd.ExcelFile(filename)
-        self.parent.Data.regression_equations = file.parse(0, index_col=0).to_dict(orient='list')
+        msg_dialog = QMessageBox()
+        msg_dialog.setIcon(QMessageBox.Information)
+        msg_dialog.setText('Not supported yet.')
+        msg_dialog.exec_()
 
     def export_quantified(self):
         if self.parent.Data.qmaps:

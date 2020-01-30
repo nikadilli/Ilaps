@@ -5,6 +5,7 @@ from PySide2.QtCore import Qt
 from widgets.tab_table import TabTable
 from widgets.pandas_model import PandasModel
 
+
 class BulkAnalysis(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
@@ -20,7 +21,7 @@ class BulkAnalysis(QWidget):
         self.lodLbl = QLabel('Detection limit')
         layout.addWidget(self.lodLbl, 0, 0)
         self.lodCombo = QComboBox()
-        self.lodCombo.addItems(['begining', 'all'])
+        self.lodCombo.addItems(['beginning', 'all'])
         layout.addWidget(self.lodCombo, 1, 0)
 
         self.standardLbl = QLabel('Standard')
@@ -73,7 +74,8 @@ class BulkAnalysis(QWidget):
         Calculate average of peaks for MSData
         """
         method = self.parent.data_select.method.currentText()
-        self.parent.Data.average(method=method)
+        scale = self.lodCombo.currentText()
+        self.parent.Data.average(method=method, scale=scale)
 
         if len(self.parent.Data.names) != len(self.parent.Data.average_peaks.index):
             error_dialog = QErrorMessage()
@@ -161,7 +163,7 @@ class BulkAnalysis(QWidget):
 
     def export(self):
         data_to_save = self.table.return_tab()
-        filename, filters = QFileDialog.getSaveFileName(self, caption='Open file', dir='.')
+        filename, filters = QFileDialog.getSaveFileName(self, 'Save file', '', 'All files (*.*);;Excel (*.xlsx, *.xls)')
         if filename:
             if data_to_save == 'Average':
                 self.parent.Data.save(filename, self.parent.Data.average_peaks)

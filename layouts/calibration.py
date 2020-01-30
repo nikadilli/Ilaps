@@ -6,7 +6,6 @@ from widgets.standard_select import StandardSelect
 
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-import pandas as pd
 
 
 class Calibration(QWidget):
@@ -30,7 +29,6 @@ class Calibration(QWidget):
         self.equationBtn.clicked.connect(self.equations)
         self.exportBtn = QPushButton('Export')
         layout.addRow(QLabel('Export Equations:'), self.exportBtn)
-        self.exportBtn.clicked.connect(self.export_equations)
         self.elem1 = QComboBox()
         self.elem1.currentTextChanged.connect(self.graph)
         layout.addRow(QLabel("Graph 1:"), self.elem1)
@@ -44,7 +42,6 @@ class Calibration(QWidget):
 
         self.settingsLayout.addWidget(self.formGroupBox)
         self.settingsLayout.addStretch(1)
-        self.settingsLayout.setSizeConstraint(QLayout.SetFixedSize)
         self.mainLayout.addWidget(self.settings)
 
         self.fig = Figure()
@@ -79,22 +76,3 @@ class Calibration(QWidget):
         self.parent.Data.calibration_graph(elem1, ax=self.ax[0])
         self.parent.Data.calibration_graph(elem2, ax=self.ax[1])
         self.canvas.draw_idle()
-
-    def export_equations(self):
-
-        if self.parent.Data.regression_equations:
-            regr_eq = pd.DataFrame.from_dict(self.parent.Data.regression_equations)
-            #regr_eq.index = ['intercept', 'slope']
-            filename, filters = QFileDialog.getSaveFileName(self, caption='Save file', dir='.')
-        else:
-            msg_dialog = QMessageBox()
-            msg_dialog.setIcon(QMessageBox.Information)
-            msg_dialog.setText('No data to save.')
-            msg_dialog.exec_()
-            return
-
-        if filename:
-            writer = pd.ExcelWriter(filename, engine='xlsxwriter')
-            regr_eq.to_excel(writer, sheet_name='regression')
-            writer.save()
-

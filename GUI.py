@@ -25,6 +25,7 @@ class MainWindow(QMainWindow):
         self.init_gui()
         self.setStyleSheet(IlapsStyle)
 
+
     def init_gui(self):
 
         self.Data = None
@@ -69,11 +70,11 @@ class MainWindow(QMainWindow):
         data.triggered.connect(lambda: self.change_layout(1))
 
         calibration = QAction(QtGui.QIcon('./imgs/calibration.png'), 'Calibration', self)
-        calibration.setShortcut('Ctrl+L')
+        calibration.setShortcut('Ctrl+C')
         calibration.triggered.connect(lambda: self.change_layout(2))
 
         bulk = QAction(QtGui.QIcon('./imgs/analysis.png'), 'Bulk analysis', self)
-        bulk.setShortcut('Ctrl+N')
+        bulk.setShortcut('Ctrl+A')
         bulk.triggered.connect(lambda: self.change_layout(3))
 
         imaging = QAction(QtGui.QIcon('./imgs/imaging.png'), 'Imaging', self)

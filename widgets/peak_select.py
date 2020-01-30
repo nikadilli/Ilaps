@@ -29,10 +29,10 @@ class PeakSelect(QWidget):
         self.setLayout(self.layout)
 
     def select_all(self):
-        self.peakList.selectAll()
+        pass
 
     def deselect_all(self):
-        self.peakList.clearSelection()
+        pass
 
     def return_all(self):
-        print([item.text() for item in self.peakList.selectedItems()])
+        return self.peakList.selectedItems()

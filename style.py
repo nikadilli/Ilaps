@@ -24,6 +24,10 @@ IlapsStyle = """
                     background-color: rgb(51, 67, 83);
                     color: white; 
                     }
+            QCheckBox {
+                    background-color: rgb(51, 67, 83);
+                    color: white; 
+                    }
             QTabWidget::pane {
                             border: None;
                             }

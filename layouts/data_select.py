@@ -3,13 +3,13 @@ from PySide2.QtWidgets import *
 from PySide2 import QtGui
 from PySide2.QtCore import Qt
 from widgets.tab_select import SelectTab
+from side_functions import names_from_iolite
+from widgets.drop_elems_window import ElemWindow
 
 import numpy as np
 
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-from widgets.peak_select import PeakSelect
-from side_functions import *
 
 
 class DataSelect(QWidget):
@@ -67,11 +67,11 @@ class DataSelect(QWidget):
         self.settingsLayout.addWidget(self.selectBtn, alignment=Qt.AlignCenter)
         self.selectBtn.clicked.connect(self.select_data)
 
-        self.peakSelect = PeakSelect(self)
-        self.settingsLayout.addWidget(self.peakSelect)
+        self.elemBtn = QPushButton('Elems')
+        self.settingsLayout.addWidget(self.elemBtn, alignment=Qt.AlignCenter)
+        self.elemBtn.clicked.connect(self.elem_window)
 
-        self.settingsLayout.setSizeConstraint(QLayout.SetFixedSize)
-        #self.settingsLayout.addStretch(1)
+        self.settingsLayout.addStretch(1)
 
         self.fig = Figure()
         self.ax = self.fig.subplots()
@@ -80,6 +80,7 @@ class DataSelect(QWidget):
         self.toolbar.setStyleSheet("QWidget {border: None; background-color: white; color: black}")
         self.mainLayout.addWidget(self.toolbar)
         self.mainLayout.addWidget(self.canvas)
+
 
     def get_page(self):
         """
@@ -102,22 +103,22 @@ class DataSelect(QWidget):
         filt = self.filter.currentText()
         self.parent.Data.set_filtering_element(filt)
 
-        if is_digit(self.skipBcgStart.text()):
+        if self.skipBcgStart.text().isdigit():
             bcg_s = int(self.skipBcgStart.text())
         else:
             bcg_s = 0
 
-        if is_digit(self.skipBcgEnd.text()):
+        if self.skipBcgEnd.text().isdigit():
             bcg_e = int(self.skipBcgEnd.text())
         else:
             bcg_e = 0
 
-        if is_digit(self.skipPeakStart.text()):
+        if self.skipPeakStart.text().isdigit():
             sig_s = int(self.skipPeakStart.text())
         else:
             sig_s = 0
 
-        if is_digit(self.skipPeakEnd.text()):
+        if self.skipPeakEnd.text().isdigit():
             sig_e = int(self.skipPeakEnd.text())
         else:
             sig_e = 0
@@ -146,6 +147,10 @@ class DataSelect(QWidget):
             start = float(self.select.start.text())
             self.parent.Data.create_selector_iolite(start)
 
+            if self.select.namesCheckBox.isChecked():
+                self.parent.Data.names = names_from_iolite(self.parent.Data.iolite)
+                print(self.parent.Data.names)
+
         if method =='Gradient':
             time = float(self.select.time.text())
             self.parent.Data.create_selector_gradient(time)
@@ -163,10 +168,6 @@ class DataSelect(QWidget):
 
         self.ax.figure.canvas.draw_idle()
 
-        self.peakSelect.peakList.clear()
-        if self.parent.Data.names:
-            self.peakSelect.peakList.addItems(self.parent.Data.names)
-        else:
-            self.parent.Data.names = ['peak_{}'.format(i) for i in range(1, len(self.parent.Data.laser_on) + 1)]
-            self.peakSelect.peakList.addItems(self.parent.Data.names)
-
+    def elem_window(self):
+        window_to_open = ElemWindow(self)
+        window_to_open.show()
