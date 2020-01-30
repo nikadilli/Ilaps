@@ -11,12 +11,12 @@ Ilaps (**I**maging of **L**aser **a**blation **p**lasma **s**pectrometry) is a p
 1. Python 3.6 or 3.7 is necessary to run the code. Download [here](https://www.python.org/downloads/) and follow the instalation.
 2. Copy or clone this repository.
 3. Open terminal/cmd and navigate to the Ilaps folder.
-⋅⋅*`cd path/to/folder/Ilaps`
+  *`cd path/to/folder/Ilaps`
 4. Create virtual enviroment. 
-⋅⋅*`python -m venv venvname`
+  *`python -m venv venvname`
 5. Activate virtual enviroment. 
-⋅⋅*`call venv/Scripts/activate.bat`
+  *`call venv/Scripts/activate.bat`
 6. Instal python libraries required for Ilaps.
-⋅⋅*`pip install -r requirements.txt`
+  *`pip install -r requirements.txt`
 7. Run Ilaps from python.
-⋅⋅*`python GUI.py`
+  *`python GUI.py`
