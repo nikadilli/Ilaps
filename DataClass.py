@@ -161,12 +161,16 @@ class MSData(object):
         if self.iolite.empty:
             print('Warning: Iolite not created.')
             return
-        lst = [x for x in self.iolite.loc[:7, ' Comment'] if isinstance(x, str)]
-
+        lst = [x for x in self.iolite.loc[:6, ' Comment'] if isinstance(x, str)]
+        
         if len(lst) == 2:
+            print('>>> Selecting spots.')
             difflst = get_diff_lst(self.iolite)
         elif len(lst) == 1:
+            print('>>> Selecting lines')
             difflst = get_diff_lst_line(self.iolite)
+        else:
+            print('Wrning: Iolite not selected.')
         timeindex = []
         for i in range(0, len(difflst)+1):
             timeindex.append(sum(difflst[:i])+start)
