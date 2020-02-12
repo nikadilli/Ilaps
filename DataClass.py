@@ -168,7 +168,7 @@ class MSData(object):
             difflst = get_diff_lst(self.iolite)
         elif len(lst) == 1:
             print('>>> Selecting lines.')
-	    difflst = get_diff_lst_line(self.iolite)
+            difflst = get_diff_lst_line(self.iolite)
         else:
             print('Warning: Iolite not selected.')
         timeindex = []
@@ -461,6 +461,9 @@ class MSData(object):
         line = self.data[elem]
         d = {}
         tmpy = 0
+        if bcg == 'beginning':
+            bcg_lst = list(line)[self.laser_off[0][0]:self.laser_off[0][1]]
+            print(bcg_lst) 
 
         for i in range(0, len(self.laser_on)):
             on = self.laser_on[i]
@@ -469,10 +472,13 @@ class MSData(object):
 
             tmpy = tmpy + self.dy
             if bcg == 'beginning':
-                bcg = list(line)[self.laser_off[0][0]:self.laser_off[0][1]]
+                print('using beginning')
+            elif bcg == 'all':
+                bcg_lst = list(line)[off_before[0]:off_before[1]] + list(line)[off_after[0]:off_after[1]]
+                print(bcg_lst)
             else:
-                bcg = list(line)[off_before[0]:off_before[1]] + list(line)[off_after[0]:off_after[1]]
-            arr = np.array(line)[on[0]:on[1]] - np.mean(bcg)
+                print('Warning: not a valid background method')
+            arr = np.array(line)[on[0]:on[1]] - np.mean(bcg_lst)
             arr[arr < 0] = 0
             d[tmpy] = arr
 

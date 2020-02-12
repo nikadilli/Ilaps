@@ -25,7 +25,7 @@ class Imaging(QWidget):
         self.dy = QLineEdit()
         layout.addRow(QLabel("Delta y: "), self.dy)
         self.background = QComboBox()
-        self.background.addItems(['begining', 'all'])
+        self.background.addItems(['beginning', 'all'])
         layout.addRow('Background: ', self.background)
         layout.addRow(QLabel(""),)
         self.minz = QLineEdit()
@@ -129,6 +129,7 @@ class Imaging(QWidget):
         dy = int(self.dy.text())
         self.parent.Data.setxy(dx, dy)
 
+        print(self.background.currentText())
         self.parent.Data.create_all_maps(self.background.currentText())
 
     def image(self, quantified=False):
