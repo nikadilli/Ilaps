@@ -14,10 +14,10 @@ To run the application, all necessary dependences must be installed. Ilaps is a 
 3. Open terminal/cmd and navigate to the Ilaps folder.
   * `cd path/to/folder/Ilaps`
 4. Create virtual enviroment. 
-  * `python3 -m venv venvname`
+  * `python -m venv venvname`
 5. Activate virtual enviroment. 
-  * Windows `call venv/Scripts/activate.bat`
-  * Linux/Mac `source venv/bin/activate`
+  * Windows `call venvname/Scripts/activate.bat`
+  * Linux/Mac `source venvname/bin/activate`
 6. Instal python libraries required for Ilaps.
   * `pip install -r requirements.txt`
 7. Run Ilaps from python.
