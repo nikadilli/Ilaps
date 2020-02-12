@@ -144,6 +144,9 @@ dmypy.json
 # Icon must end with two \r
 Icon
 
+# JetBrains
+.idea/
+
 # Thumbnails
 ._*
 
