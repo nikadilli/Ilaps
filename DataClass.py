@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pandas as pd
 import xlrd
 import os
@@ -508,8 +509,8 @@ class MSData(object):
         else:
             print('Warning: Matrix does not exists.')
 
-    def elemental_image(self, elem, fig=None, ax=None, vmin=None, vmax=None,
-                        colourmap='jet', interpolate='none', title='', units='', quantified=False):
+    def elemental_image(self, elem, fig=None, ax=None, vmin=None, vmax=None, clb=True, axis=True,
+                        colourmap='jet', interpolate='none', title='', units='', quantified=False, *args, **kwargs):
 
         if fig is None or ax is None:
             fig, ax = plt.subplots()
@@ -529,17 +530,26 @@ class MSData(object):
                 data = self.qmaps[elem]
 
         im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap=colourmap, interpolation=interpolate,
-                       extent=[0,self.maps[elem].columns[-1], self.maps[elem].index[-1], 0]) # .values
-        clb = fig.colorbar(im)
-        clb.ax.set_title(units)
+                       extent=[0,self.maps[elem].columns[-1], self.maps[elem].index[-1], 0], *args, **kwargs) # .values
+        if not axis:
+            ax.axis('off')
+        if clb:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            clb = fig.colorbar(im, cax=cax)
+            clb.ax.set_title(units)
         fig.suptitle(title)
-        plt.show()
+        #plt.show()
 
     def quantify_map(self, elem, intercept, slope):
         if elem not in self.elements:
             warnings.warn('Element map doesnt exist.')
             return
         self.qmaps[elem] = (self.maps[elem]-intercept)/slope
+        
+    def quantify_all_maps(self):
+        for elem in self.elements:
+            self.quantify_map(elem=elem, intercept=self.regression_equations[elem][0], slope=self.regression_equations[elem][1])
 
     def export_matrices(self, path, quantified=False):
         writer = pd.ExcelWriter(path, engine='xlsxwriter')
