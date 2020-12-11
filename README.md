@@ -1,4 +1,5 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+[![DOI](https://zenodo.org/badge/191962607.svg)](https://zenodo.org/badge/latestdoi/191962607)
 
 # Ilaps
 **python data reduction and imaging application for LA-ICP-MS**
