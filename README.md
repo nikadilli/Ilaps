@@ -1,3 +1,5 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+
 # Ilaps
 **python data reduction and imaging application for LA-ICP-MS**
 
