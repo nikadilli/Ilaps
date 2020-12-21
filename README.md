@@ -1,10 +1,18 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+[![DOI](https://zenodo.org/badge/191962607.svg)](https://zenodo.org/badge/latestdoi/191962607)
+
 # Ilaps
 **python data reduction and imaging application for LA-ICP-MS**
 
 ## About
 LA-ICP-MS is an extremely powerful analytical technique for spatially resolved analysis of solid samples. It produces complex, time-dependent signals which require different approach than signals produced by solution sample introduction. 
 
-Ilaps (**I**maging of **L**aser **a**blation **p**lasma **s**pectrometry) is a python application aimed on data created with laser ablation inductively coupled plasma mass spectrometry. It is suited for a spot and line analysis as well as an elemental imaging. The data can be imported directly from mass spectrometry data acquisition as .csv, .asc or .xlsx files.
+Ilaps (**I**maging of **L**aser **a**blation **p**lasma **s**pectrometry) is a python based software tool specifically developed for data procesing of laser ablation inductively coupled plasma mass spectrometry (LA-ICP-MS). So far it is possible to directly import data in different formats (.csv, .xlsx, .asc) from Agilent and Element2 instruments, however as an open source software it is simple to add protocols for other formats or instruments, if necessary. ILAPS offers (I.) **bulk analysis**  (II.) **calculation of calibration curves** (III.) **elemental imaging** from a continuous time dependant data acquired in a single file. This is where ILAPS differs from most of the other accesible softwares, it uses .iolite file from Laser ablation system to find start of each ablation and automatically segments the datastream into sections of signal and background.
+
+ILAPS also contains background correction as well as internal standard normalisation and total sum normalisation. Data can be visualised in different colormaps. Semi-interactive graph embeded directly in the user interface ensures proper controll over the final appearance of the output image. Moreover, it is possible to scale, smooth, interpolate and quantify the data with instant response in the image. 
+
+Even though ILAPS is optimised for LA-ICP-MS, it can easily handle data from other instruments, such as laser induced breakdown spectroscopy (LIBS), just by a simple conversion of raw data to fit the importing format. This allows an easy comparison of elemental imaging by different methods.
+
 
 ## Run from code 
 To run the application, all necessary dependences must be installed. Ilaps is a python desktop aplication, therefore it is necessary to install python and required libraries before the first time the app is started.
