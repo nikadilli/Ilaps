@@ -366,8 +366,11 @@ class MSData(object):
         if not self.names or self.srm.empty or self.average_peaks.empty: 
             warnings.warn('Missing data.')
         spots = self.average_peaks.iloc[[i for i,val in enumerate(self.names) if val!=self.srm.name]]
+        print(spots)
         stdsig = self.average_peaks.iloc[[i for i,val in enumerate(self.names) if val==self.srm.name]].mean(axis=0)
+        print(stdsig)
         self.ratio = [float(self.srm[element_strip(el)])/float(stdsig[el]) for el in stdsig.index]
+        print(self.ratio)
         self.quantified = spots.mul(self.ratio, axis='columns')
 
     def detection_limit(self, method='area', scale='all'):
@@ -403,7 +406,7 @@ class MSData(object):
             #else:
                 #self.correction_elements.remove(el)
 
-    def total_sum_correction(self):
+    def total_sum_correction(self, suma=880000):
         # calculates total sum correction using coefficients given in PARAM file
         if not self.sum_koeficients:
             warnings.warn('Missing coeficients for total sum correction.')
@@ -415,7 +418,7 @@ class MSData(object):
             if not elem:
                 continue
             self.corrected_SO[elem] = self.corrected_SO[elem] / self.sum_koeficients[key] * 100
-        koef=1000000/self.corrected_SO.sum(1)
+        koef=suma/self.corrected_SO.sum(1)
         self.corrected_SO = self.corrected_SO.mul(list(koef), axis='rows')
         for key in self.sum_koeficients:
             elem = element_formater(key, self.corrected_SO.columns)
