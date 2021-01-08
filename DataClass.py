@@ -172,6 +172,8 @@ class MSData(object):
         lst = [x for x in self.iolite.loc[:6,
                                           ' Comment'] if isinstance(x, str)]
 
+        start = self.time[get_index(self.data, start)]
+
         if len(lst) == 2:
             print('>>> Selecting spots.')
             difflst = get_diff_lst(self.iolite)
@@ -183,6 +185,7 @@ class MSData(object):
         timeindex = []
         for i in range(0, len(difflst)+1):
             timeindex.append(sum(difflst[:i])+start)
+
         index = [get_index(self.data, x) for x in timeindex]
 
         self.starts = [index[i] for i in range(len(index)) if i % 2 == 0]
@@ -549,6 +552,14 @@ class MSData(object):
 
             self.maps[elem] = pd.DataFrame(
                 rotated, columns=columns, index=indexes)
+        else:
+            print('Warning: Matrix does not exists.')
+
+    def flip_map(self, elem, axis):
+        if elem in self.maps.keys():
+            flipped = np.flip(self.maps[elem].values, axis)
+            self.maps[elem] = pd.DataFrame(
+                flipped, columns=self.maps[elem].columns, index=self.maps[elem].index)
         else:
             print('Warning: Matrix does not exists.')
 

@@ -5,7 +5,8 @@ from PySide2.QtCore import Qt
 
 from DataClass import MSData
 
-from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
 
 
@@ -30,7 +31,7 @@ class Imaging(QWidget):
         layout.addRow(QLabel(""),)
         self.minz = QLineEdit()
         layout.addRow(QLabel("Min z: "), self.minz)
-        self.maxz= QLineEdit()
+        self.maxz = QLineEdit()
         layout.addRow(QLabel("Max z: "), self.maxz)
         layout.addRow(QLabel(""), )
         self.intercept = QLineEdit()
@@ -80,6 +81,14 @@ class Imaging(QWidget):
         layout2.addWidget(self.rotateBtn)
         self.rotateBtn.clicked.connect(self.rotate)
 
+        self.VFlipBtn = QPushButton('VFlip')
+        layout2.addWidget(self.VFlipBtn)
+        self.VFlipBtn.clicked.connect(self.vflip)
+
+        self.HflipBtn = QPushButton('HFlip')
+        layout2.addWidget(self.HflipBtn)
+        self.HflipBtn.clicked.connect(self.hflip)
+
         self.quantifyBtn = QPushButton('Quantify')
         layout2.addWidget(self.quantifyBtn)
         self.quantifyBtn.clicked.connect(self.quantify)
@@ -108,7 +117,8 @@ class Imaging(QWidget):
         self.ax = self.fig.subplots()
         self.canvas = FigureCanvas(self.fig)
         self.toolbar = NavigationToolbar(self.canvas, self)
-        self.toolbar.setStyleSheet("QWidget {border: None; background-color: white; color: black}")
+        self.toolbar.setStyleSheet(
+            "QWidget {border: None; background-color: white; color: black}")
         self.graphLayout.addWidget(self.toolbar)
         self.graphLayout.addWidget(self.canvas)
 
@@ -161,7 +171,6 @@ class Imaging(QWidget):
         self.ax = self.fig.subplots()
         self.ax.figure.canvas.draw_idle()
 
-
         self.parent.Data.elemental_image(fig=self.fig, ax=self.ax, elem=elem, vmin=vmin, vmax=vmax,
                                          interpolate=interpolation, colourmap=cmap, title=title,
                                          units=units, quantified=quantified)
@@ -171,7 +180,18 @@ class Imaging(QWidget):
     def rotate(self):
         elem = self.element.currentText()
         self.parent.Data.rotate_map(elem)
+        self.image()
 
+    def vflip(self):
+        print('vertical flip')
+        elem = self.element.currentText()
+        self.parent.Data.flip_map(elem, 0)
+        self.image()
+
+    def hflip(self):
+        print('horizontal flip')
+        elem = self.element.currentText()
+        self.parent.Data.flip_map(elem, 1)
         self.image()
 
     def import_matrix(self):
@@ -185,7 +205,7 @@ class Imaging(QWidget):
             self.parent.Data = MSData()
 
         self.parent.Data.import_matrices(filename)
-        elems = self.parent.Data.elements
+        elems = self.parent.Data.columns
         self.element.addItems(elems)
         self.parent.show_data.elem.addItems(elems)
 
@@ -196,7 +216,8 @@ class Imaging(QWidget):
 
     def export_matrix(self):
         if self.parent.Data.maps:
-            filename, filters = QFileDialog.getSaveFileName(self, caption='Save file', dir='.')
+            filename, filters = QFileDialog.getSaveFileName(
+                self, caption='Save file', dir='.')
         else:
             msg_dialog = QMessageBox()
             msg_dialog.setIcon(QMessageBox.Information)
@@ -224,7 +245,8 @@ class Imaging(QWidget):
             return
 
         elem = self.element.currentText()
-        self.parent.Data.quantify_map(elem=elem, intercept=intercept, slope=slope)
+        self.parent.Data.quantify_map(
+            elem=elem, intercept=intercept, slope=slope)
         self.image(quantified=True)
 
     def quantify_all(self):
@@ -235,7 +257,8 @@ class Imaging(QWidget):
 
     def export_quantified(self):
         if self.parent.Data.qmaps:
-            filename, filters = QFileDialog.getSaveFileName(self, caption='Open file', dir='.')
+            filename, filters = QFileDialog.getSaveFileName(
+                self, caption='Open file', dir='.')
         else:
             msg_dialog = QMessageBox()
             msg_dialog.setIcon(QMessageBox.Information)

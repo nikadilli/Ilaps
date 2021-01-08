@@ -8,11 +8,13 @@ from widgets.pandas_model import PandasModel
 
 from xlrd import XLRDError
 
+
 class Welcome(QWidget):
     """
     Starting screen of Ilaps GUI, allowing importing analysis data
 
     """
+
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
@@ -30,11 +32,13 @@ class Welcome(QWidget):
 
         self.loadData1 = QPushButton('')
         self.loadData1.setIcon(QtGui.QIcon('./imgs/load.jpg'))
-        self.analysisLayout.addWidget(self.loadData1, 1, 0, alignment=Qt.AlignLeft)
+        self.analysisLayout.addWidget(
+            self.loadData1, 1, 0, alignment=Qt.AlignLeft)
         self.loadData1.clicked.connect(lambda: self.get_file(self.dataEntry1))
 
         self.dataEntry1 = QLineEdit()
-        self.analysisLayout.addWidget(self.dataEntry1, 1, 1, alignment=Qt.AlignLeft)
+        self.analysisLayout.addWidget(
+            self.dataEntry1, 1, 1, alignment=Qt.AlignLeft)
 
         self.lbl = QLabel('File type:')
         self.analysisLayout.addWidget(self.lbl, 2, 0)
@@ -55,22 +59,26 @@ class Welcome(QWidget):
 
         self.loadData2 = QPushButton('')
         self.loadData2.setIcon(QtGui.QIcon('./imgs/load.jpg'))
-        self.analysisLayout.addWidget(self.loadData2, 5, 0, alignment=Qt.AlignLeft)
+        self.analysisLayout.addWidget(
+            self.loadData2, 5, 0, alignment=Qt.AlignLeft)
         self.loadData2.clicked.connect(lambda: self.get_file(self.dataEntry2))
 
         self.dataEntry2 = QLineEdit()
-        self.analysisLayout.addWidget(self.dataEntry2, 5, 1, alignment=Qt.AlignLeft)
+        self.analysisLayout.addWidget(
+            self.dataEntry2, 5, 1, alignment=Qt.AlignLeft)
 
         self.lbl = QLabel('Import Iolite')
         self.analysisLayout.addWidget(self.lbl, 6, 0)
 
         self.loadIolite = QPushButton('')
         self.loadIolite.setIcon(QtGui.QIcon('./imgs/load.jpg'))
-        self.analysisLayout.addWidget(self.loadIolite, 7, 0, alignment=Qt.AlignLeft)
+        self.analysisLayout.addWidget(
+            self.loadIolite, 7, 0, alignment=Qt.AlignLeft)
         self.loadIolite.clicked.connect(lambda: self.get_file(self.dataEntry3))
 
         self.dataEntry3 = QLineEdit()
-        self.analysisLayout.addWidget(self.dataEntry3, 7, 1, alignment=Qt.AlignLeft)
+        self.analysisLayout.addWidget(
+            self.dataEntry3, 7, 1, alignment=Qt.AlignLeft)
 
         self.importAnalysis.setLayout(self.analysisLayout)
 
@@ -104,11 +112,11 @@ class Welcome(QWidget):
         if self.parent.Data is not None:
             self.parent.Data = None
 
-
         try:
             self.parent.Data = MSData(self.dataEntry1.text(),
-                                  filetype=str(self.fileType.currentText()),
-                                  instrument=str(self.instrument.currentText()))
+                                      filetype=str(
+                                          self.fileType.currentText()),
+                                      instrument=str(self.instrument.currentText()))
         except Exception as e:
             error_dialog = QErrorMessage()
             error_dialog.showMessage('Data not imported. <br>{}'.format(e))
@@ -163,10 +171,9 @@ class Welcome(QWidget):
         self.parent.data_select.canvas.draw()
 
         # for tab in self.parent.bulk_analysis.table.tabLst.values():
-            # self.parent.bulk_analysis.table.table[tab].clearSpans()
+        # self.parent.bulk_analysis.table.table[tab].clearSpans()
 
         model = PandasModel(self.parent.Data.data)
         self.parent.bulk_analysis.table.table['Raw'].setModel(model)
 
-
-
+        self.parent.change_layout(1)
