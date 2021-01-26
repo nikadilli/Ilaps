@@ -438,8 +438,6 @@ class MSData(object):
             if el in self.elements:
                 self.corrected_IS.append(correction(
                     self.quantified, el, self.internal_std))
-            # else:
-                # self.correction_elements.remove(el)
 
     def total_sum_correction(self, suma=1000000):
         # calculates total sum correction using coefficients given in PARAM file
